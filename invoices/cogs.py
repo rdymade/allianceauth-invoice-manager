@@ -1,5 +1,6 @@
 import datetime
 import logging
+import shlex
 
 from aadiscordbot.app_settings import get_site_url, get_all_servers
 from aadiscordbot.cogs.utils.decorators import has_any_perm, sender_has_perm
@@ -181,14 +182,26 @@ class Invoices(commands.Cog):
 
     @commands.command(name='new_invoice')
     @sender_has_perm("invoices.add_invoice")
-    async def new_invoice(self, ctx, character, amount, *, reason):
+    async def new_invoice(self, ctx, *, args):
         """
         Text command to create a new invoice.
-        Usage: !new_invoice <character> <amount> <reason>
+        Usage: !new_invoice "character" "amount" "reason"
         """
         try:
             user = DiscordUser.objects.get(uid=ctx.author.id).user
             try:
+                try:
+                    parts = shlex.split(args)
+                except ValueError:
+                    return await ctx.send("Invalid quoting. Use double quotes around each parameter.")
+
+                if len(parts) < 3:
+                    return await ctx.send('Usage: !new_invoice "character" "amount" "reason"')
+
+                character = parts[0]
+                amount = parts[1]
+                reason = " ".join(parts[2:])
+
                 char = EveCharacter.objects.get(character_name=character)
                 _t = timezone.now() + datetime.timedelta(days=7)
                 _i = Invoice.objects.create(
