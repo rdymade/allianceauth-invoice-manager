@@ -179,6 +179,41 @@ class Invoices(commands.Cog):
         except commands.MissingPermissions as e:
             return await ctx.respond(e.missing_permissions[0], ephemeral=True)
 
+    @commands.command(name='new_invoice')
+    @sender_has_perm("invoices.add_invoice")
+    async def new_invoice(self, ctx, character, amount, *, reason):
+        """
+        Text command to create a new invoice.
+        Usage: !new_invoice <character> <amount> <reason>
+        """
+        try:
+            user = DiscordUser.objects.get(uid=ctx.author.id).user
+            try:
+                char = EveCharacter.objects.get(character_name=character)
+                _t = timezone.now() + datetime.timedelta(days=7)
+                _i = Invoice.objects.create(
+                    character=char,
+                    amount=input_to_number(amount),
+                    note=reason,
+                    due_date=_t,
+                    invoice_ref=f"{str(char).replace(' ','')}-{str(hash(_t))[-10:]}".lower()
+                )
+                _i.notify(
+                    f"{user.profile.main_character} Sent you an invoice! Please check auth for details!")
+                await ctx.send(f"Sent {char} an Invoice for Ƶ{input_to_number(amount):,}")
+
+            except EveCharacter.DoesNotExist:
+                await ctx.send("Character Not Found!")
+            except ValueError:
+                await ctx.send("Invalid amount format! Use numbers with K, M, or B (e.g., 5B, 100M, 50K)")
+            except Exception as e:
+                await ctx.send(f"Error creating invoice: {e}")
+
+        except DiscordUser.DoesNotExist:
+            await ctx.send("You are not registered in the system!")
+        except commands.MissingPermissions as e:
+            await ctx.send(f"You don't have permission: {e.missing_permissions[0]}")
+
 
 def setup(bot):
     bot.add_cog(Invoices(bot))
